@@ -370,7 +370,7 @@ function open(f::Function, url; suppress_close_error::Bool=false, verbose=false,
         # doing websocket things
         http.ntoread = 0
         io = http.stream
-        ws = WebSocket(io, http.message.request, http.message; maxframesize, maxfragmentation; readtimeout)
+        ws = WebSocket(io, http.message.request, http.message; maxframesize, maxfragmentation, readtimeout)
         @debugv 2 "$(ws.id): WebSocket opened"
         try
             f(ws)
