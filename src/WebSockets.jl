@@ -348,7 +348,7 @@ WebSockets.open(url) do ws
 end
 ```
 """
-function open(f::Function, url; suppress_close_error::Bool=false, verbose=false, headers=[], maxframesize::Integer=typemax(Int), maxfragmentation::Integer=DEFAULT_MAX_FRAG, kw...)
+function open(f::Function, url; suppress_close_error::Bool=false, verbose=false, headers=[], maxframesize::Integer=typemax(Int), maxfragmentation::Integer=DEFAULT_MAX_FRAG, readtimeout::Int=0, kw...)
     key = base64encode(rand(Random.RandomDevice(), UInt8, 16))
     headers = [
         "Upgrade" => "websocket",
@@ -358,7 +358,7 @@ function open(f::Function, url; suppress_close_error::Bool=false, verbose=false,
         headers...
     ]
     # HTTP.open
-    open("GET", url, headers; verbose=verbose, kw...) do http
+    open("GET", url, headers; verbose=verbose, readtimeout=readtimeout, kw...) do http
         startread(http)
         isupgrade(http.message) || handshakeerror()
         if header(http, "Sec-WebSocket-Accept") != hashedkey(key)
@@ -370,7 +370,7 @@ function open(f::Function, url; suppress_close_error::Bool=false, verbose=false,
         # doing websocket things
         http.ntoread = 0
         io = http.stream
-        ws = WebSocket(io, http.message.request, http.message; maxframesize, maxfragmentation)
+        ws = WebSocket(io, http.message.request, http.message; maxframesize, maxfragmentation; readtimeout)
         @debugv 2 "$(ws.id): WebSocket opened"
         try
             f(ws)
