@@ -13,7 +13,7 @@ using OpenSSL: SSLStream
 
 export bytes, isbytes, nbytes, ByteView, nobytes,
        startwrite, closewrite, startread, closeread,
-       tcpsocket, localport, safe_getpeername
+       tcpsocket, localport, safe_getpeername, read_with_timeout
 
 """
     bytes(x)
@@ -121,6 +121,20 @@ function Base.readuntil(buf::IOBuffer,
     bytes = view(buf.data, buf.ptr:buf.ptr + l - 1)
     buf.ptr += l
     return bytes
+end
+
+function read_with_timeout(io::IO, type::Type, timeout::Int; sleepTime=0.01)
+    totalTime = 0
+    value = nothing
+    @async value = read(io, type)
+    while value === nothing
+        if timeout != 0 && totalTime >= timeout
+            throw(TimeoutException())
+        end
+        sleep(sleepTime)
+        totalTime += sleepTime
+    end
+    value
 end
 
 end

@@ -123,9 +123,9 @@ Frame may also be part of fragmented message, with opcdoe `CONTINUATION`;
 `first_fragment_opcode` should be passed from the 1st frame of a fragmented message
 to ensure each subsequent frame payload is converted correctly (String or Vector{UInt8}).
 """
-function readframe(io::IO, ::Type{Frame}, buffer::Vector{UInt8}=UInt8[], first_fragment_opcode::OpCode=CONTINUATION)
+function readframe(io::IO, ::Type{Frame}, buffer::Vector{UInt8}=UInt8[], first_fragment_opcode::OpCode=CONTINUATION; readtimeout::Int=0)
     iocheck(io)
-    flags = FrameFlags(ntoh(read(io, UInt16)))
+    flags = FrameFlags(ntoh(read_with_timeout(io, UInt16, readtimeout)))
     if flags.len == 0x7E
         extlen = ntoh(read(io, UInt16))
         len = UInt64(extlen)
@@ -293,12 +293,13 @@ mutable struct WebSocket
     writebuffer::Vector{UInt8}
     readclosed::Bool
     writeclosed::Bool
+    readtimeout::Int
 end
 
 const DEFAULT_MAX_FRAG = 1024
 
-WebSocket(io::Connection, req=Request(), resp=Response(); client::Bool=true, maxframesize::Integer=typemax(Int), maxfragmentation::Integer=DEFAULT_MAX_FRAG) =
-    WebSocket(uuid4(), io, req, resp, maxframesize, maxfragmentation, client, UInt8[], UInt8[], false, false)
+WebSocket(io::Connection, req=Request(), resp=Response(); client::Bool=true, maxframesize::Integer=typemax(Int), maxfragmentation::Integer=DEFAULT_MAX_FRAG, readtimeout::Int=0) =
+    WebSocket(uuid4(), io, req, resp, maxframesize, maxfragmentation, client, UInt8[], UInt8[], false, false, readtimeout)
 
 """
     WebSockets.isclosed(ws) -> Bool
@@ -694,6 +695,9 @@ end
 function Base.iterate(ws::WebSocket, st=nothing)
     isclosed(ws) && return nothing
     try
+        if ws.readtimeout > 0 && shouldtimeout(ws.io, ws.readtimeout)
+            throw()
+        end
         return receive(ws), nothing
     catch e
         isok(e) && return nothing
